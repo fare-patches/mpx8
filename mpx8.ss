@@ -1,10 +1,9 @@
-#!/usr/bin/env gxi
 ;; -*- Gerbil -*-
-;; package: jira
-;; namespace: jira
-;; (export main)
+package: mpx8
+namespace: mpx8
+(export main)
 
-;;(declare (not optimize-dead-definitions))
+(declare (not optimize-dead-definitions))
 (import
   :gerbil/gambit
   :gerbil/gambit/ports
@@ -16,6 +15,8 @@
   :std/srfi/95
   :std/sugar
   )
+
+(def program-name "mpx8")
 
 (def file-data [])
 
@@ -102,6 +103,7 @@
 ;; # 00 00 00 00
 ;; # 00 00 00 00
 ;; # 00 00 00 00
+
 
 (def pad-internal
   (u8vector
@@ -267,16 +269,15 @@
 ;; (def (write-u8vector bytes (port (current-output-port)))
 ;;   (write-subu8vector bytes 0 (u8vector-length bytes) port))
 
-(def kit-file (open-file '(path: "./test" create: maybe truncate: #t)))
-
-(for-each
-  (lambda (x)
-    (displayln "doing " x)
-    (write-u8vector x kit-file))
-  kit-parts)
-
-(force-output kit-file)
-(close-port kit-file)
+(def (create kitfile)
+  (let ((kit-file (open-file '(path: "./test" create: maybe truncate: #t))))
+    (for-each
+      (lambda (x)
+	(write-u8vector x kit-file))
+      kit-parts)
+    (force-output kit-file)
+    (close-port kit-file)
+    (displayln "done")))
 
 ;;(with-output-to-file "./KIT01.me"
 ;; (for-each
@@ -328,3 +329,38 @@
 ;; <vyzo> because you are stacking them with cons
 ;; <vyzo> the magic operator :)
 ;; <Ober> ah right
+
+(def (main . args)
+  (if (null? args)
+    (usage))
+  (let* ((argc (length args))
+	 (verb (car args))
+	 (args2 (cdr args)))
+    (unless (hash-key? interactives verb)
+      (usage))
+    (let* ((info (hash-get interactives verb))
+	   (count (hash-get info count:)))
+      (unless count
+	(set! count 0))
+      (unless (= (length args2) count)
+	(usage-verb verb))
+      (apply (eval (string->symbol (string-append "mpx8#" verb))) args2))))
+
+(def interactives
+  (hash
+   ("create" (hash (description: "Create new kit") (usage: "create <kit name>") (count: 1)))))
+
+(def (usage-verb verb)
+  (let ((howto (hash-get interactives verb)))
+    (displayln "Wrong number of arguments. Usage is:")
+    (displayln program-name " " (hash-get howto usage:))
+    (exit 2)))
+
+(def (usage)
+  (displayln "Usage: mpx8 <verb>")
+  (displayln "Verbs:")
+  (for-each
+    (lambda (k)
+      (displayln (format "~a: ~a" k (hash-get (hash-get interactives k) description:))))
+    (sort! (hash-keys interactives) string<?))
+  (exit 2))

@@ -8,13 +8,13 @@
 
 (def build-spec
   '("mpx8"
-    (exe: "mpx8" "-ld-options" "-lyaml -lssl -lz -L/usr/local/lib/" "-cc-options" "-I/usr/local/include")
+    (exe: "mpx8" "-ld-options" "-lssl -lz -L/usr/local/lib/" "-cc-options" "-I/usr/local/include")
     ))
 
 (def build-spec-static
   '("mpx8"
     (static-exe: "mpx8"
-                 "-ld-options" "-lyaml -lssl -lz -L/usr/local/lib"
+                 "-ld-options" "-lssl -lz -L/usr/local/lib"
                  "-prelude" "(declare (not safe))")))
 
 (def srcdir
