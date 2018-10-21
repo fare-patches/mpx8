@@ -399,34 +399,54 @@ namespace: mpx8
   (let ((type (read-fixed-length-quantity 4 p))
 	(length (read-fixed-length-quantity 4 p)))
     (def message #f)
-    (for (t (in-range 1 length))
-	 (read-message p)
-	 )))
+    (for/collect (t (in-range 1 length))
+		 (set! message (read-timed-message p)))))
 
-(def (read-message p)
-  (let ((byte (read-fixed-length-quantity 1 p)))
-    (if
+(def (read-variable-length-quantity p)
+  "read a MIDI variable length quantity from *midi-input*"
+  (let ((result 0)
+	(byte #f))
+    (while (< byte #x80)
+      (set! byte (read-next-byte p))
+      (set! result (bitwise-ior (arithmetic-shift result 7) (bitwise-and byte #x7f))))
+    result))
+
+;; (defun read-timed-message (p)
+;;   "read a message preceded with a delta-time indication"
+;;   (let ((delta-time (read-variable-length-quantity p))
+;; 	(status-or-data (read-next-byte p)))
+;;     (if (>= status-or-data #x80)
+;;       (begin
+;; 	(when (<= status-or-data #xef)
+;; 	  (displayln "running-status: " status-or-data))
+;; 	(begin (unread-byte status-or-data)
+;; 	       (setf *status* *running-status*)))
+;; (let ((message (read-message)))
+;;   (fill-message message)
+;;   (setf (message-time message) (incf *time* delta-time))
+;;   message)))
+
+
+(define (le32dec v)
+  (bitwise-ior
+   (u8vector-ref v 3)
+   (arithmetic-shift (u8vector-ref v 1) 2)
+   (arithmetic-shift (u8vector-ref v 2) 1)
+   (arithmetic-shift (u8vector-ref v 3) 0)))
+
+(define (le16dec v)
+  (bitwise-ior
+   (u8vector-ref v 1)
+   (arithmetic-shift (u8vector-ref v 1) 0)))
+
+(def (read-fixed-length-quantity nb-bytes p)
+  "read an unsigned integer of nb-bytes bytes from port p"
+  (unless (zero? nb-bytes)
+    (let ((results 0))
+      (for (byte (in-range 1 nb-bytes))
+	   (set! results (bitwise-ior (arithmetic-shift results 8) (read-next-byte p))))
+      results)))
 
 (def (read-next-byte p)
+  "read an unsigned 8-bit byte from *midi-input* checking for unread bytes"
   (read-u8 p))
-
-(defun read-variable-length-quantity ()
-  "read a MIDI variable length quantity from *midi-input*"
-  (loop with result = 0
-	with byte
-	do (setf byte (read-next-byte)
-		 result (logior (ash result 7) (logand byte #x7f)))
-	until (< byte #x80)
-	finally (return result)))
-
- (def (read-next-byte p)
-   (read-u8 p))
-
-(defun read-variable-length-quantity ()
-  "read a MIDI variable length quantity from *midi-input*"
-  (loop with result = 0
-	with byte
-	do (setf byte (read-next-byte)
-		 result (logior (ash result 7) (logand byte #x7f)))
-	until (< byte #x80)
-	finally (return result)))
