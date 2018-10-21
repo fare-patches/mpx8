@@ -405,22 +405,25 @@ namespace: mpx8
 (def (read-variable-length-quantity p)
   "read a MIDI variable length quantity from *midi-input*"
   (let ((result 0)
-	(byte #f))
+	(byte #x81))
     (while (< byte #x80)
       (set! byte (read-next-byte p))
       (set! result (bitwise-ior (arithmetic-shift result 7) (bitwise-and byte #x7f))))
     result))
 
-;; (defun read-timed-message (p)
-;;   "read a message preceded with a delta-time indication"
-;;   (let ((delta-time (read-variable-length-quantity p))
-;; 	(status-or-data (read-next-byte p)))
-;;     (if (>= status-or-data #x80)
-;;       (begin
-;; 	(when (<= status-or-data #xef)
-;; 	  (displayln "running-status: " status-or-data))
-;; 	(begin (unread-byte status-or-data)
-;; 	       (setf *status* *running-status*)))
+(def (read-timed-message p)
+  "read a message preceded with a delta-time indication"
+  (let ((delta-time (read-variable-length-quantity p))
+	(status-or-data (read-next-byte p)))
+    (displayln "delta-time: " delta-time " status-or-data: " status-or-data)
+    (if (>= status-or-data #x80)
+      (begin
+	(when (<= status-or-data #xef)
+	  (displayln "running-status: " status-or-data))))))
+
+
+;;	(begin (unread-byte status-or-data)
+;;	       (setf *status* *running-status*)))
 ;; (let ((message (read-message)))
 ;;   (fill-message message)
 ;;   (setf (message-time message) (incf *time* delta-time))
