@@ -9,6 +9,7 @@ namespace: mpx8
   :gerbil/gambit/ports
   :scheme/base
   :std/format
+  :std/iter
   :std/pregexp
   :std/srfi/13
   :std/srfi/19
@@ -18,6 +19,8 @@ namespace: mpx8
 
 (def program-name "mpx8")
 
+(def *midi-input* #f)
+(def *input-buffer* [])
 (def file-data [])
 
 (def file-header
@@ -270,7 +273,8 @@ namespace: mpx8
 ;;   (write-subu8vector bytes 0 (u8vector-length bytes) port))
 
 (def (create kitfile)
-  (let ((kit-file (open-file '(path: "./test" create: maybe truncate: #t))))
+  (let* ((path (format "~a.kit" kitfile))
+	 (kit-file (open-file '(path: "./test" create: maybe truncate: #t))))
     (for-each
       (lambda (x)
 	(write-u8vector x kit-file))
@@ -348,7 +352,10 @@ namespace: mpx8
 
 (def interactives
   (hash
-   ("create" (hash (description: "Create new kit") (usage: "create <kit name>") (count: 1)))))
+   ("create" (hash (description: "Create new kit") (usage: "create <kit name>") (count: 1)))
+   ("read-midi-file" (hash (description: "Read Midi file") (usage: "read-midi-file <midi file>") (count: 1)))
+   ))
+
 
 (def (usage-verb verb)
   (let ((howto (hash-get interactives verb)))
@@ -364,3 +371,62 @@ namespace: mpx8
       (displayln (format "~a: ~a" k (hash-get (hash-get interactives k) description:))))
     (sort! (hash-keys interactives) string<?))
   (exit 2))
+
+(def (read-midi-file filename)
+  "read an entire Midifile from the file with name given as argument"
+  (let ((offset 0))
+    (call-with-input-file filename
+      (lambda (p)
+	(let* ((type (read-fixed-length-quantity 4 p))
+	       (length (read-fixed-length-quantity 4 p))
+	       (format (read-fixed-length-quantity 2 p))
+	       (nb-tracks (read-fixed-length-quantity 2 p))
+	       (division (read-fixed-length-quantity 2 p)))
+
+	  (displayln "type: " type
+		     " length: " length
+		     " format: " format
+		     " nb-tracks: " nb-tracks
+		     " division: " division)
+
+	  (for/collect ((track (in-range 1 nb-tracks)))
+		       (read-track p))
+
+
+	  )))))
+
+(def (read-track p)
+  (let ((type (read-fixed-length-quantity 4 p))
+	(length (read-fixed-length-quantity 4 p)))
+    (def message #f)
+    (for (t (in-range 1 length))
+	 (read-message p)
+	 )))
+
+(def (read-message p)
+  (let ((byte (read-fixed-length-quantity 1 p)))
+    (if
+
+(def (read-next-byte p)
+  (read-u8 p))
+
+(defun read-variable-length-quantity ()
+  "read a MIDI variable length quantity from *midi-input*"
+  (loop with result = 0
+	with byte
+	do (setf byte (read-next-byte)
+		 result (logior (ash result 7) (logand byte #x7f)))
+	until (< byte #x80)
+	finally (return result)))
+
+ (def (read-next-byte p)
+   (read-u8 p))
+
+(defun read-variable-length-quantity ()
+  "read a MIDI variable length quantity from *midi-input*"
+  (loop with result = 0
+	with byte
+	do (setf byte (read-next-byte)
+		 result (logior (ash result 7) (logand byte #x7f)))
+	until (< byte #x80)
+	finally (return result)))
