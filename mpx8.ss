@@ -414,20 +414,36 @@ namespace: mpx8
 (def (read-timed-message p)
   "read a message preceded with a delta-time indication"
   (let ((delta-time (read-variable-length-quantity p))
-	(status-or-data (read-next-byte p)))
-    (displayln "delta-time: " delta-time " status-or-data: " status-or-data)
-    (if (>= status-or-data #x80)
+	(status-or-data #f)
+	(next (peek-u8 p)))
+    (if (>= next #x80)
       (begin
-	(when (<= status-or-data #xef)
-	  (displayln "running-status: " status-or-data))))))
+	(set! status-or-data (read-next-byte p))
+	(displayln "Status-or-data: " status-or-data))
+      (begin
+	(set! status-or-data "No status, just data")))
+    (displayln "delta-time: " delta-time " status-or-data: " status-or-data)
+    (let ((message (read-message)))
+      ;;   (fill-message message)
+      ;;   (setf (message-time message) (incf *time* delta-time))
+      message)))
 
-
-;;	(begin (unread-byte status-or-data)
-;;	       (setf *status* *running-status*)))
-;; (let ((message (read-message)))
-;;   (fill-message message)
-;;   (setf (message-time message) (incf *time* delta-time))
-;;   message)))
+(defun read-message ()
+  "read a message without time indication from *midi-input*"
+  (let ((classname-or-subtype (aref *dispatch-table* *status*)))
+    (unless classname-or-subtype
+      (error (make-condition 'unknown-event
+			     :status *status*)))
+    (if (symbolp classname-or-subtype)
+	(make-instance classname-or-subtype)
+	(let* ((data-byte (read-next-byte))
+	       (classname (aref classname-or-subtype data-byte)))
+	  (unless classname
+	    (error (make-condition 'unknown-event
+				   :status *status*
+				   :data-byte data-byte)))
+	  (unread-byte data-byte)
+	  (make-instance classname)))))
 
 
 (define (le32dec v)
