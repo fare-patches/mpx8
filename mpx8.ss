@@ -411,7 +411,6 @@ namespace: mpx8
 	(byte (read-next-byte p)))
     (while (< byte #x80)
       (set! byte (read-next-byte p))
-      (displayln "byte: " byte)
       (set! result (bitwise-ior (arithmetic-shift result 7) (bitwise-and byte #x7f))))
     result))
 
