@@ -44,6 +44,9 @@ namespace: mpx8
    #x00 #x00 #x00 #x00
    #x00 #x00 #x00 #x00))
 
+(def *running-status* #x0)
+(def *status* #x0)
+
 ;; # Kit Header
 ;; # 50 bytes
 
@@ -405,9 +408,10 @@ namespace: mpx8
 (def (read-variable-length-quantity p)
   "read a MIDI variable length quantity from *midi-input*"
   (let ((result 0)
-	(byte #x81))
+	(byte (read-next-byte p)))
     (while (< byte #x80)
       (set! byte (read-next-byte p))
+      (displayln "byte: " byte)
       (set! result (bitwise-ior (arithmetic-shift result 7) (bitwise-and byte #x7f))))
     result))
 
@@ -416,44 +420,179 @@ namespace: mpx8
   (let ((delta-time (read-variable-length-quantity p))
 	(status-or-data #f)
 	(next (peek-u8 p)))
+    (displayln "delta-time: " delta-time " status-or-data: " next)
     (if (>= next #x80)
       (begin
 	(set! status-or-data (read-next-byte p))
-	(displayln "Status-or-data: " status-or-data))
+	(when (<= *status* #xef)
+	  (set! *running-status* *status*)))
       (begin
-	(set! status-or-data "No status, just data")))
-    (displayln "delta-time: " delta-time " status-or-data: " status-or-data)
-    (let ((message (read-message)))
-      ;;   (fill-message message)
-      ;;   (setf (message-time message) (incf *time* delta-time))
+	(set! status-or-data #x0)))
+    (let ((message (read-message p)))
       message)))
 
-(defun read-message ()
-  "read a message without time indication from *midi-input*"
-  (let ((classname-or-subtype (aref *dispatch-table* *status*)))
-    (unless classname-or-subtype
-      (error (make-condition 'unknown-event
-			     :status *status*)))
-    (if (symbolp classname-or-subtype)
-	(make-instance classname-or-subtype)
-	(let* ((data-byte (read-next-byte))
-	       (classname (aref classname-or-subtype data-byte)))
-	  (unless classname
-	    (error (make-condition 'unknown-event
-				   :status *status*
-				   :data-byte data-byte)))
-	  (unread-byte data-byte)
-	  (make-instance classname)))))
+(def (read-message p)
+  (when (>= *status* #x80)
+    (cond
+     ((between? *status* #x80 #x8f) (note-off-message))
+     ((between? *status* #x90 #x9f) (note-on-message))
+     ((between? *status* #xa0 #xaf) (polyphonic-key-pressure-message))
+     ((between? *status* #xb0 #xbf) (control-change-message))
+     ((between? *status* #xc0 #xcf) (program-change-message))
+     ((between? *status* #xd0 #xdf) (channel-pressure-message))
+     ((between? *status* #xe0 #xef) (pitch-bend-message))
+     ((between? *status* #xb0 #xbf) (mode-message))
+     ((between? *status* #xb0 #xbf) (all-notes-off-message))
+     ((between? *status* #xb0 #xbf) (omni-mode-off-message))
+     ((between? *status* #xb0 #xbf) (omni-mode-on-message))
+     ((between? *status* #xb0 #xbf) (mono-mode-on-message))
+     ((between? *status* #xb0 #xbf) (poly-mode-on-message))
+     ((between? *status* #xf2 #xf2) (system-message))
+     ((between? *status* #xf3 #xf3) (song-select-message))
+     ((between? *status* #xf6 #xf6) (tune-request-message))
+     ((between? *status* #xfa #xfa) (start-sequence-message))
+     ((between? *status* #xfc #xfc) (stop-sequence-message))
+     ((between? *status* #xf6 #xf6) (tune-request-message))
+     ((between? *status* #xf0 #xf0) (system-exclusive-message))
+     ((between? *status* #xf7 #xf7) (authorization-system-exclusive-message))
+     ((between? *status* #xff #xff) (meta-message))
+     ((between? *status* #x00 #x00) (sequence-number-message))
+     ((between? *status* #x01 #x01) (general-text-message))
+     ((between? *status* #x03 #x03) (sequence/track-name-message))
+     ((between? *status* #x05 #x05) (lyric-message))
+     ((between? *status* #x07 #x07) (cue-point-message))
+     ((between? *status* #x09 #x09) (device-name-message))
+     ((between? *status* #x21 #x21) (midi-port-message))
+     ((between? *status* #x2f #x2f) (end-of-track-message))
+     ((between? *status* #x51 #x51) (tempo-message))
+     ((between? *status* #x54 #x54) (smpte-offset-message))
+     ((between? *status* #x58 #x58) (time-signature-message))
+     ((between? *status* #x59 #x59) (key-signature-message))
+     ((between? *status* #x7f #x7f) (proprietary-event)))))
 
 
-(define (le32dec v)
+
+(def (note-off-message)
+  (displayln "Got note-off-message"))
+
+(def (note-on-message)
+  (displayln "Got note-on-message"))
+
+(def (polyphonic-key-pressure-message)
+  (displayln "Got polyphonic-key-pressure-message"))
+
+(def (control-change-message)
+  (displayln "Got control-change-message"))
+
+(def (program-change-message)
+  (displayln "Got program-change-message"))
+
+(def (channel-pressure-message)
+  (displayln "Got channel-pressure-message"))
+
+(def (pitch-bend-message)
+  (displayln "Got pitch-bend-message"))
+
+(def (mode-message)
+  (displayln "Got mode-message"))
+
+(def (all-notes-off-message)
+  (displayln "Got all-notes-off-message"))
+
+(def (omni-mode-off-message)
+  (displayln "Got omni-mode-off-message"))
+
+(def (omni-mode-on-message)
+  (displayln "Got omni-mode-on-message"))
+
+(def (mono-mode-on-message)
+  (displayln "Got mono-mode-on-message"))
+
+(def (poly-mode-on-message)
+  (displayln "Got poly-mode-on-message"))
+
+(def (system-message)
+  (displayln "Got system-message"))
+
+(def (song-select-message)
+  (displayln "Got song-select-message"))
+
+(def (tune-request-messag)
+  (displayln "Got tune-request-messag"))
+
+(def (start-sequence-message)
+  (displayln "Got start-sequence-message"))
+
+(def (stop-sequence-message)
+  (displayln "Got stop-sequence-message"))
+
+(def (tune-request-message)
+  (displayln "Got tune-request-message"))
+
+(def (system-exclusive-message)
+  (displayln "Got system-exclusive-message"))
+
+(def (authorization-system-exclusive-message)
+  (displayln "Got authorization-system-exclusive-message"))
+
+(def (meta-message)
+  (displayln "Got meta-message"))
+
+(def (sequence-number-message)
+  (displayln "Got sequence-number-message"))
+
+(def (general-text-message)
+  (displayln "Got general-text-message"))
+
+(def (sequence/track-name-message)
+  (displayln "Got sequence/track-name-message"))
+
+(def (lyric-message)
+  (displayln "Got lyric-message"))
+
+(def (cue-point-message)
+  (displayln "Got cue-point-message"))
+
+(def (device-name-message)
+  (displayln "Got device-name-message"))
+
+(def (midi-port-message)
+  (displayln "Got midi-port-message"))
+
+(def (end-of-track-message)
+  (displayln "Got end-of-track-message"))
+
+(def (tempo-message)
+  (displayln "Got tempo-message"))
+
+(def (smpte-offset-message)
+  (displayln "Got smpte-offset-message"))
+
+(def (time-signature-message)
+  (displayln "Got time-signature-message"))
+
+(def (key-signature-message)
+  (displayln "Got key-signature-message"))
+
+(def (proprietary-event)
+  (displayln "Got proprietary-event"))
+
+
+(def (between? v min max)
+  (cond
+   ((and (<= v max) (>= v min))
+    #t)
+   (else
+    #f)))
+
+(def (le32dec v)
   (bitwise-ior
    (u8vector-ref v 3)
    (arithmetic-shift (u8vector-ref v 1) 2)
    (arithmetic-shift (u8vector-ref v 2) 1)
    (arithmetic-shift (u8vector-ref v 3) 0)))
 
-(define (le16dec v)
+(def (le16dec v)
   (bitwise-ior
    (u8vector-ref v 1)
    (arithmetic-shift (u8vector-ref v 1) 0)))
