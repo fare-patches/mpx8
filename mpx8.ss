@@ -405,14 +405,19 @@ namespace: mpx8
     (for/collect (t (in-range 1 length))
 		 (set! message (read-timed-message p)))))
 
+
 (def (read-variable-length-quantity p)
-  "read a MIDI variable length quantity from *midi-input*"
-  (let ((result 0)
-	(byte (read-next-byte p)))
-    (while (< byte #x80)
-      (set! byte (read-next-byte p))
-      (set! result (bitwise-ior (arithmetic-shift result 7) (bitwise-and byte #x7f))))
-    result))
+  (let loop ((result 0))
+    (let (byte (read-u8 p))
+      (if (eof-object? byte)
+        result
+        (let (result (bitwise-ior
+		      (arithmetic-shift result 7)
+                      (##fxand byte #x7f)))
+          (if (##fx< byte #x80)
+            result
+            (loop result)))))))
+
 
 (def (read-timed-message p)
   "read a message preceded with a delta-time indication"
@@ -420,15 +425,16 @@ namespace: mpx8
 	(status-or-data #f)
 	(next (peek-u8 p)))
     (displayln "delta-time: " delta-time " status-or-data: " next)
-    (if (>= next #x80)
-      (begin
-	(set! status-or-data (read-next-byte p))
-	(when (<= *status* #xef)
-	  (set! *running-status* *status*)))
-      (begin
-	(set! status-or-data #x0)))
-    (let ((message (read-message p)))
-      message)))
+    (unless (eof-object? next)
+      (if (>= next #x80)
+	(begin
+	  (set! status-or-data (read-next-byte p))
+	  (when (<= *status* #xef)
+	    (set! *running-status* *status*)))
+	(begin
+	  (set! status-or-data #x0)))
+      (let ((message (read-message p)))
+	message))))
 
 (def (read-message p)
   (when (>= *status* #x80)
