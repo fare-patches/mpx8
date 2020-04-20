@@ -1,15 +1,11 @@
 #!/usr/bin/env gxi
 ;; -*- Gerbil -*-
 
-(import :std/build-script)
 (import :std/make)
-
-(defbuild-script '("mpx8.ss"))
 
 (def build-spec
   '("mpx8"
-    (exe: "mpx8" "-ld-options" "-lssl -lz -L/usr/local/lib/" "-cc-options" "-I/usr/local/include")
-    ))
+    (exe: "mpx8" "-ld-options" "-lssl -lz -L/usr/local/lib/" "-cc-options" "-I/usr/local/include")))
 
 (def build-spec-static
   '("mpx8"
@@ -22,25 +18,18 @@
 
 (def (main . args)
   (match args
-    (["deps"]
-     (let (build-deps (make-depgraph/spec build-spec))
-       (call-with-output-file "build-deps" (cut write build-deps <>))))
     (["static"]
-     (let (depgraph (call-with-input-file "build-deps" read))
-       (make srcdir: srcdir
-             bindir: srcdir
-             optimize: #t
-             static: #t
-             depgraph: depgraph
-             prefix: "mpx8"
-             build-spec-static)))
+     (make srcdir: srcdir
+           bindir: srcdir
+           optimize: #t
+           static: #t
+           prefix: "mpx8"
+           build-spec-static))
     ([]
-     (let (depgraph (call-with-input-file "build-deps" read))
-       (make srcdir: srcdir
-             bindir: srcdir
-             optimize: #t
-             debug: 'env
-             static: #t
-             depgraph: depgraph
-             prefix: "mpx8"
-             build-spec)))))
+     (make srcdir: srcdir
+           bindir: srcdir
+           optimize: #t
+           debug: 'env
+           static: #t
+           prefix: "mpx8"
+           build-spec))))
